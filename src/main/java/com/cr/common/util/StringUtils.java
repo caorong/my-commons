@@ -76,6 +76,7 @@ public class StringUtils {
         StringBuilder sb = new StringBuilder();
 
         Integer[] keyarr = tagsIndex.keySet().toArray(new Integer[0]);
+        Arrays.sort(keyarr);
         int klength = keyarr.length;
         if (klength > 0) {
             // add head str
