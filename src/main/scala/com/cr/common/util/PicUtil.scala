@@ -5,8 +5,8 @@ import java.io.{File, FileOutputStream, OutputStream}
 import java.util
 import java.util.concurrent
 import java.util.concurrent.{Callable, Executors}
-import javax.imageio.stream.{ImageOutputStream, MemoryCacheImageOutputStream}
-import javax.imageio.{IIOImage, ImageIO, ImageWriteParam, ImageWriter}
+import javax.imageio.stream.{ImageInputStream, ImageOutputStream, MemoryCacheImageOutputStream}
+import javax.imageio._
 
 import com.cr.common.log.Logging
 import org.slf4j.LoggerFactory
@@ -54,7 +54,7 @@ object PicUtil extends Logging {
   // quality from 1.0 minus  0.01 0.02 0.04 0.08...
   def compressRecu(sourcePath: String, maxSize: Long): String = {
     val picbase = sourcePath.split("\\.")(0)
-    var i = 1;
+    var i = 1
     var nquality = 0.01f
     while (true) {
       var os: OutputStream = null
@@ -68,13 +68,13 @@ object PicUtil extends Logging {
         ImageIO.setUseCache(true)
         ImageIO.setCacheDirectory(new File(CacheDirectory))
         compress(ImageIO.read(sfile),
-          os, quality)
+                  os, quality)
 
         logger.info(
-          s"""compress no.${i}, quality => ${quality},
-                                                       |sfile size => ${sfile.length()}
-              |Max size =>   ${maxSize}
-              |cfile size => ${compressedf.length()}""".stripMargin)
+                     s"""compress no.${i}, quality => ${quality},
+                        |sfile size => ${sfile.length()}
+                        |Max size =>   ${maxSize}
+                        |cfile size => ${compressedf.length()}""".stripMargin)
         compressedf match {
           case f if f.length() < maxSize => return f.getAbsolutePath
           case _ => compressedf.delete()
@@ -83,9 +83,13 @@ object PicUtil extends Logging {
         case e: Exception => logger.error("compress error !!!", e)
       } finally {
         if (os != null) {
-          os.close
+          os.close()
         }
-        nquality *= 2
+        if (nquality * 2 > 0.5) {
+          nquality += 0.1f
+        } else {
+          nquality *= 2
+        }
         i += 1
       }
     }
@@ -114,9 +118,39 @@ object PicUtil extends Logging {
 
 
   // return width hight
-  def picwh(sourceFile: File): (Int, Int) = {
-    val image = ImageIO.read(sourceFile)
+  @Deprecated
+  def picwh2(sourceFile: File): (Int, Int) = {
+    logger.info(s"check width hight @ ${sourceFile.getAbsolutePath}")
+    //    val image = ImageIO.read(sourceFile)
+    val image: BufferedImage = ImageIO.read(sourceFile);
     (image.getWidth, image.getHeight)
+  }
+
+
+  def picwh(sourceFile: File): (Int, Int) = {
+    logger.info(s"check width hight @ ${sourceFile.getAbsolutePath}")
+    val input: ImageInputStream = ImageIO.createImageInputStream(sourceFile)
+
+    try {
+      // Get the reader
+      val readers: util.Iterator[ImageReader] = ImageIO.getImageReaders(input);
+
+      if (!readers.hasNext()) {
+        throw new RuntimeException("No reader for: " + sourceFile.getAbsolutePath);
+      } else {
+        val reader: ImageReader = readers.next()
+        try {
+          reader.setInput(input)
+          (reader.getWidth(0), reader.getHeight(0))
+        } finally {
+          reader.dispose()
+        }
+      }
+    } catch {
+      case e: Exception => throw e
+    } finally {
+      input.close()
+    }
   }
 
   def main(args: Array[String]): Unit = {
@@ -127,10 +161,15 @@ object PicUtil extends Logging {
     //    println("call 1")
     //    println(r1.get)
 
-    val r2 = compressWithThread("/Users/caorong/Documents/workspace_scala/xxrestorer/1986.jpg", 10 * 1000 * 1000)
-    println("call 2")
-    println(r2.get)
+    //    val r2 = compressWithThread("/Users/caorong/Documents/workspace_scala/xxrestorer/1986.jpg", 10 * 1000 * 1000)
+    //    println("call 2")
+    //    println(r2.get)
 
     //    println(picwh(new File("/Users/caorong/Documents/workspace_scala/xxrestorer/74.jpg")))
+//    println(picwh(new File("/Users/caorong/Documents/workspace_scala/xxrestorer/30852.jpg")))
+//    println(picwh(new File("/Users/caorong/Documents/workspace_scala/xxrestorer/weibo3187.jpg")))
+
+    println(picwh2(new File("/Users/caorong/Documents/workspace_scala/xxrestorer/30852.jpg")))
+    println(picwh2(new File("/Users/caorong/Documents/workspace_scala/xxrestorer/weibo3187.jpg")))
   }
 }
